@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.GvsuFoodMap" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Compose draws its own UI; we don’t need the old action bar -->
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+</resources>
