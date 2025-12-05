@@ -1,37 +1,30 @@
 package com.example.gvsufoodmap.ui
 
 import android.graphics.Color as AndroidColor
+import android.content.Context
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.Button
-import androidx.compose.material3.Divider
-import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import com.example.gvsufoodmap.data.FakeRepo
 import com.example.gvsufoodmap.model.Category
 import com.example.gvsufoodmap.model.FoodLocation
 import com.example.gvsufoodmap.state.AppState
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.GoogleMap
+import com.google.android.gms.maps.MapView
+import com.google.android.gms.maps.MapsInitializer
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
-import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.compose.GoogleMap
-import com.google.maps.android.compose.MapProperties
-import com.google.maps.android.compose.MapUiSettings
-import com.google.maps.android.compose.Marker
-import com.google.maps.android.compose.rememberCameraPositionState
-import com.google.maps.android.compose.rememberMarkerState
+import com.google.android.gms.maps.model.Marker
+import com.google.android.gms.maps.model.MarkerOptions
 
 @Composable
 fun MapScreen() {
@@ -39,65 +32,88 @@ fun MapScreen() {
     val filters = AppState.filters.value
     val notes by AppState.notes   // user reviews / star ratings
 
-    // Center camera roughly on GVSU Allendale campus
-    val campusCenter = LatLng(42.963936, -85.888946)
+    val context = LocalContext.current
 
-    val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(campusCenter, 16f)
-    }
+    // MapView lives across recompositions
+    val mapView = rememberMapViewWithLifecycle(context)
 
+    var googleMap by remember { mutableStateOf<GoogleMap?>(null) }
     var selectedLocationId by remember { mutableStateOf<String?>(null) }
 
-    // Apply filter switches from Settings tab
-    val filteredLocations = remember(filters) {
-        FakeRepo.locations.filter { loc ->
-            val categoryAllowed = when (loc.category) {
-                Category.RESTAURANT -> filters.restaurant
-                Category.STORE      -> filters.store
-                Category.VENDING    -> filters.vending
-                Category.CAFE       -> filters.cafe
-                Category.OTHER      -> filters.other
+    // Filter locations based on switches in Settings
+    val filteredLocations by remember(filters) {
+        mutableStateOf(
+            FakeRepo.locations.filter { loc ->
+                val allowed = when (loc.category) {
+                    Category.RESTAURANT -> filters.restaurant
+                    Category.STORE      -> filters.store
+                    Category.VENDING    -> filters.vending
+                    Category.CAFE       -> filters.cafe
+                    Category.OTHER      -> filters.other
+                }
+                allowed && (!filters.only24h || loc.open24h)
             }
-            categoryAllowed && (!filters.only24h || loc.open24h)
-        }
+        )
     }
-
-    val selectedLocation = filteredLocations.firstOrNull { it.id == selectedLocationId }
-        ?: FakeRepo.locations.firstOrNull { it.id == selectedLocationId }
 
     val markerIcon = remember(markerColorInt) {
         markerIconFromArgb(markerColorInt)
     }
 
-    Box(Modifier.fillMaxSize()) {
-        // --- Actual Google Map ---
-        GoogleMap(
-            modifier = Modifier.fillMaxSize(),
-            cameraPositionState = cameraPositionState,
-            uiSettings = MapUiSettings(zoomControlsEnabled = true),
-            properties = MapProperties(isMyLocationEnabled = false)
-        ) {
-            filteredLocations.forEach { loc ->
-                val position = LatLng(loc.lat, loc.lng)
-                val locReviews = notes.filter { it.locationId == loc.id }
-                val avgRating = locReviews.map { it.rating }.average().takeIf { !it.isNaN() }
+    // When we get a GoogleMap instance or data changes, update markers
+    LaunchedEffect(googleMap, filteredLocations, markerColorInt, notes) {
+        val map = googleMap ?: return@LaunchedEffect
+        map.clear()
 
-                Marker(
-                    state = rememberMarkerState(position = position),
-                    title = loc.name,
-                    snippet = avgRating?.let {
-                        "Rating: %.1f/5 (%d reviews)".format(it, locReviews.size)
-                    } ?: "No reviews yet",
-                    icon = markerIcon,
-                    onClick = {
-                        selectedLocationId = loc.id    // open bottom sheet
-                        false                           // also show default info window
-                    }
-                )
-            }
+        val campusCenter = LatLng(42.963936, -85.888946)
+        map.moveCamera(CameraUpdateFactory.newLatLngZoom(campusCenter, 16f))
+
+        filteredLocations.forEach { loc ->
+            val position = LatLng(loc.lat, loc.lng)
+            val locReviews = notes.filter { it.locationId == loc.id }
+            val avgRating = locReviews.map { it.rating }.average().takeIf { !it.isNaN() }
+
+            val marker = map.addMarker(
+                MarkerOptions()
+                    .position(position)
+                    .title(loc.name)
+                    .snippet(
+                        avgRating?.let {
+                            "Rating: %.1f/5 (%d reviews)".format(it, locReviews.size)
+                        } ?: "No reviews yet"
+                    )
+                    .icon(markerIcon)
+            )
+            marker?.tag = loc.id
         }
 
-        // --- Bottom card with “what they have” + reviews for the selected location ---
+        map.setOnMarkerClickListener { marker ->
+            val id = marker.tag as? String
+            selectedLocationId = id
+            false // also show default info window
+        }
+    }
+
+    val selectedLocation = remember(selectedLocationId, filteredLocations) {
+        filteredLocations.firstOrNull { it.id == selectedLocationId } ?:
+        FakeRepo.locations.firstOrNull { it.id == selectedLocationId }
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        AndroidView(
+            factory = {
+                // Initialize Google Maps
+                MapsInitializer.initialize(context)
+                mapView.apply {
+                    getMapAsync { map ->
+                        googleMap = map
+                        map.uiSettings.isZoomControlsEnabled = true
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+
         if (selectedLocation != null) {
             val locationReviews = notes.filter { it.locationId == selectedLocation.id }
             LocationDetailsPanel(
@@ -113,6 +129,30 @@ fun MapScreen() {
             )
         }
     }
+}
+
+@Composable
+private fun rememberMapViewWithLifecycle(context: Context): MapView {
+    val mapView = remember {
+        MapView(context).apply {
+            // You can pass a Bundle here if you handle saved state
+            onCreate(null)
+        }
+    }
+
+    // Hook MapView into Compose lifecycle
+    DisposableEffect(Unit) {
+        mapView.onStart()
+        mapView.onResume()
+
+        onDispose {
+            mapView.onPause()
+            mapView.onStop()
+            mapView.onDestroy()
+        }
+    }
+
+    return mapView
 }
 
 // Use the RGB sliders from Settings to tint the marker on the real map
@@ -171,7 +211,6 @@ private fun LocationDetailsPanel(
                 }
             }
 
-            // “What they have”
             if (location.items.isNotEmpty()) {
                 Text("What they have:", style = MaterialTheme.typography.labelMedium)
                 location.items.forEach { item ->
@@ -179,7 +218,6 @@ private fun LocationDetailsPanel(
                 }
             }
 
-            // Average rating + a few recent reviews
             if (avgRating != null) {
                 Text(
                     "Average rating: %.1f/5 (%d reviews)".format(avgRating, reviews.size),
@@ -214,7 +252,6 @@ private fun LocationDetailsPanel(
 
             Divider()
 
-            // Add a new review for this location
             Text("Leave a review", style = MaterialTheme.typography.titleSmall)
             OutlinedTextField(
                 value = title,
