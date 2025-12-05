@@ -4,6 +4,8 @@ plugins {
     id("com.android.application") version "8.6.0"
     id("org.jetbrains.kotlin.android") version "2.0.21"
     id("org.jetbrains.kotlin.plugin.compose") version "2.0.21"
+
+    id("com.google.android.libraries.mapsplatform.secrets-gradle-plugin")
 }
 
 
@@ -85,3 +87,10 @@ tasks.withType<KotlinCompile>().configureEach {
     }
 }
 
+secrets {
+    // File that holds your *real* keys (not in git)
+    propertiesFileName = "secrets.properties"
+
+    // Safe defaults file that CAN go in git
+    defaultPropertiesFileName = "local.defaults.properties"
+}
