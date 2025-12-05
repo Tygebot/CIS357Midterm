@@ -2,8 +2,11 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     id("com.android.application") version "8.6.0"
-    id("org.jetbrains.kotlin.android") version "1.9.24"
+    id("org.jetbrains.kotlin.android") version "2.0.21"
+    id("org.jetbrains.kotlin.plugin.compose") version "2.0.21"
 }
+
+
 
 android {
     namespace = "com.example.gvsufoodmap"
@@ -24,7 +27,6 @@ android {
     }
 
     buildFeatures { compose = true }
-    composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }
 
     packaging { resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" } }
 }
@@ -47,14 +49,34 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     implementation("androidx.compose.material3:material3:1.3.0")
+    implementation("androidx.compose.foundation:foundation")
     implementation("androidx.navigation:navigation-compose:2.8.3")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
-    implementation("androidx.compose.foundation:foundation")
-    implementation("androidx.navigation:navigation-compose:2.8.3")
 
-    // XML Material theme (for themes.xml parents)
+    // 🔁 REMOVE this line:
+    // implementation("com.google.maps.android:maps-compose:6.10.0")
+
+    // ✅ ADD this: classic Google Maps SDK
+    implementation("com.google.android.gms:play-services-maps:18.2.0")
+
+    implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.core:core:1.13.1")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:2.0.21")
+
     implementation("com.google.android.material:material:1.12.0")
+}
+
+
+configurations.all {
+    resolutionStrategy {
+        // Force older core versions that work with AGP 8.6.0 / compileSdk 35
+        force("androidx.core:core-ktx:1.13.1")
+        force("androidx.core:core:1.13.1")
+        // make sure everything uses the same Kotlin stdlib as the plugin
+        force("org.jetbrains.kotlin:kotlin-stdlib:2.0.21")
+    }
 }
 
 tasks.withType<KotlinCompile>().configureEach {
