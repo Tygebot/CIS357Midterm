@@ -237,7 +237,7 @@ private fun LocationDetailsPanel(
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Text(
-                                note.title.ifBlank { "(No title)" },
+                                note.title.ifBlank { "(No name)" },
                                 style = MaterialTheme.typography.titleSmall
                             )
                             Text(note.body, style = MaterialTheme.typography.bodySmall)
@@ -256,7 +256,7 @@ private fun LocationDetailsPanel(
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
-                label = { Text("Title (optional)") },
+                label = { Text("Name (optional)") },
                 modifier = Modifier.fillMaxWidth()
             )
             OutlinedTextField(

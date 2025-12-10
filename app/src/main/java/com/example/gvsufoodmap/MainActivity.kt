@@ -38,7 +38,7 @@ class MainActivity : ComponentActivity() {
                 Scaffold(
                     topBar = {
                         CenterAlignedTopAppBar(
-                            title = { Text("GVSU Food Map (Demo)") }
+                            title = { Text("GVSU Food") }
                         )
                     }
                 ) { innerPadding ->

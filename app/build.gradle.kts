@@ -56,10 +56,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
 
-    // 🔁 REMOVE this line:
-    // implementation("com.google.maps.android:maps-compose:6.10.0")
-
-    // ✅ ADD this: classic Google Maps SDK
     implementation("com.google.android.gms:play-services-maps:18.2.0")
 
     implementation("androidx.compose.material:material-icons-extended")
@@ -68,6 +64,12 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib:2.0.21")
 
     implementation("com.google.android.material:material:1.12.0")
+    // Unit tests
+    testImplementation("junit:junit:4.13.2")
+
+    // Instrumented Android tests
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
 }
 
 
